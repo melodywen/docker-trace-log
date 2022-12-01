@@ -13,15 +13,18 @@ import (
 )
 
 type LogInfo struct {
-	LogTime string
-	Origin  string
-	Index   string
+	StackName     string
+	ServerName    string
+	ContainerName string
+	LogTime       string
+	Origin        string
+	Index         string
 }
 
 var LogsChan = make(chan *LogInfo, 100000)
 
 type CollectingLogContainer struct {
-	Container       *types.Container
+	Container       types.Container
 	Ctx             context.Context
 	Cancel          context.CancelFunc
 	Regexp          string // 正则表达式
@@ -30,7 +33,7 @@ type CollectingLogContainer struct {
 
 type DockerContainer struct {
 	*DockerApi
-	CurrentContainer map[string]*types.Container
+	CurrentContainer map[string]types.Container
 
 	CollectingLogContainerMap map[string]*CollectingLogContainer
 }
@@ -61,9 +64,9 @@ func (d *DockerContainer) ReadCurrentContainerList() {
 	if err != nil {
 		log.Fatalf("docker read current container list error :%s", err)
 	}
-	info := map[string]*types.Container{}
+	info := map[string]types.Container{}
 	for _, container := range list {
-		info[container.Names[0]] = &container
+		info[container.Names[0]] = container
 	}
 	d.CurrentContainer = info
 }
@@ -73,18 +76,18 @@ func (d *DockerContainer) AddContainerToCollectLog() {
 	for name, container := range d.CurrentContainer {
 		if _, ok := d.CollectingLogContainerMap[name]; !ok {
 			// 开始收集日志
-			d.CollectingLog(name, container)
+			go d.CollectingLog(name, container)
 		}
 	}
 }
 
-func (d *DockerContainer) CollectingLog(name string, container *types.Container) {
+func (d *DockerContainer) CollectingLog(name string, container types.Container) {
 
 	log.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>开始收集容器日志:%s", name)
 	defer log.Printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<,结束容器的日志收集，%s", name)
 
 	ctx, cancel := context.WithCancel(d.Ctx)
-	logs, err := d.Cli.ContainerLogs(ctx, "b25e9f44a7f4", types.ContainerLogsOptions{
+	logs, err := d.Cli.ContainerLogs(ctx, container.ID, types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Since:      time.Now().Format("2006-01-02T15:04:05"),
@@ -109,9 +112,12 @@ func (d *DockerContainer) CollectingLog(name string, container *types.Container)
 	// 循环读取一行
 	for {
 		l := LogInfo{
-			LogTime: "",
-			Origin:  "",
-			Index:   "",
+			StackName:     strings.Split(name[1:], "_")[0],
+			ServerName:    strings.Split(name[1:], ".")[0],
+			ContainerName: name[1:],
+			LogTime:       "",
+			Origin:        "",
+			Index:         "",
 		}
 		select {
 		case <-ctx.Done():
@@ -122,16 +128,19 @@ func (d *DockerContainer) CollectingLog(name string, container *types.Container)
 				break
 			}
 			lineStr := string(line)
-			if len(line) < 20 {
-				break
-			}
 			// 获取 origin
 			index := strings.Index(lineStr, strconv.Itoa(time.Now().Year()))
+			if index == -1 {
+				break
+			}
 			lineStr = lineStr[index:]
 			l.Origin = lineStr
 
 			// 获取time
 			index = strings.Index(lineStr, " ")
+			if index == -1 {
+				break
+			}
 			lineStr = lineStr[:index]
 			l.LogTime = lineStr
 
@@ -152,5 +161,4 @@ func (d *DockerContainer) CollectingLog(name string, container *types.Container)
 		}
 		LogsChan <- &l
 	}
-
 }
