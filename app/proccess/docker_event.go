@@ -18,6 +18,7 @@ type DockerEvent struct {
 //  @param dockerApi
 //  @return *DockerEvent
 func NewDockerEvent(api *DockerApi) *DockerEvent {
+	ReLoadContainerInfo <- true
 	return &DockerEvent{DockerApi: api}
 }
 
@@ -39,7 +40,7 @@ func (d *DockerEvent) Handler() {
 		case err := <-errs:
 			log.Fatalf("docker event error:%s", err)
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(5000 * time.Millisecond)
 	}
 }
 

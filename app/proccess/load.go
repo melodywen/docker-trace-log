@@ -11,9 +11,12 @@ func ProcessLoad(ctx context.Context) error {
 	log.Println("加载进程")
 
 	api := NewDockerApi(ctx)
-	event := NewDockerEvent(api)
 
-	event.Handler()
+	event := NewDockerEvent(api)
+	go event.Handler()
+
+	container := NewDockerContainer(api)
+	container.Handler()
 
 	err := api.CloseCli()
 	return err
