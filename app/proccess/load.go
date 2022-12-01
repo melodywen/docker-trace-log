@@ -2,6 +2,8 @@ package proccess
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -16,7 +18,13 @@ func ProcessLoad(ctx context.Context) error {
 	go event.Handler()
 
 	container := NewDockerContainer(api)
-	container.Handler()
+	go container.Handler()
+
+	for {
+		aaa := <-LogsChan
+		str, _ := json.MarshalIndent(aaa, "", "   ")
+		fmt.Println(string(str))
+	}
 
 	err := api.CloseCli()
 	return err

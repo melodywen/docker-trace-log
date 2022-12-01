@@ -3,15 +3,17 @@ package proccess
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"github.com/docker/docker/api/types"
 	"io"
 	"log"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type LogInfo struct {
-	LogTime time.Time
+	LogTime string
 	Origin  string
 	Index   string
 }
@@ -19,9 +21,11 @@ type LogInfo struct {
 var LogsChan = make(chan *LogInfo, 100000)
 
 type CollectingLogContainer struct {
-	Container *types.Container
-	Ctx       context.Context
-	Cancel    context.CancelFunc
+	Container       *types.Container
+	Ctx             context.Context
+	Cancel          context.CancelFunc
+	Regexp          string // 正则表达式
+	RegexpDirection string // 正则的方向
 }
 
 type DockerContainer struct {
@@ -39,7 +43,6 @@ func NewDockerContainer(dockerApi *DockerApi) *DockerContainer {
 }
 
 func (d *DockerContainer) Handler() {
-
 	for {
 		update := <-ReLoadContainerInfo
 		log.Println("更新容器信息", update)
@@ -94,14 +97,22 @@ func (d *DockerContainer) CollectingLog(name string, container *types.Container)
 	}
 	br := bufio.NewReader(logs)
 
-	d.CollectingLogContainerMap[name] = &CollectingLogContainer{
-		Container: container,
-		Ctx:       ctx,
-		Cancel:    cancel,
+	collection := &CollectingLogContainer{
+		Container:       container,
+		Ctx:             ctx,
+		Cancel:          cancel,
+		Regexp:          "traceId\\\": \"(.*?)\"",
+		RegexpDirection: "start",
 	}
+	d.CollectingLogContainerMap[name] = collection
 
 	// 循环读取一行
 	for {
+		l := LogInfo{
+			LogTime: "",
+			Origin:  "",
+			Index:   "",
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -110,20 +121,36 @@ func (d *DockerContainer) CollectingLog(name string, container *types.Container)
 			if err == io.EOF {
 				break
 			}
-			line = line[8:]
-			fmt.Println("==============")
-			fmt.Println(string(line))
-
-			l := LogInfo{
-				LogTime: time.Now(),
-				Origin:  string(line),
-				Index:   "",
+			lineStr := string(line)
+			if len(line) < 20 {
+				break
 			}
+			// 获取 origin
+			index := strings.Index(lineStr, strconv.Itoa(time.Now().Year()))
+			lineStr = lineStr[index:]
+			l.Origin = lineStr
 
-			fmt.Println(l.Origin[4:50])
-			LogsChan <- &l
+			// 获取time
+			index = strings.Index(lineStr, " ")
+			lineStr = lineStr[:index]
+			l.LogTime = lineStr
 
+			// 获取对应的trace
+			reg, err := regexp.Compile(collection.Regexp)
+			if err != nil {
+				log.Fatalf("正则表达式异常,err:%s", err)
+			}
+			match := reg.FindAllStringSubmatch(l.Origin, -1)
+			if len(match) == 0 {
+				break
+			}
+			hit := match[0]
+			if collection.RegexpDirection != "start" {
+				hit = match[len(match)-1]
+			}
+			l.Index = hit[len(hit)-1]
 		}
+		LogsChan <- &l
 	}
 
 }
