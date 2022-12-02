@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/melodywen/docker-trace-log/app/proccess"
 	router2 "github.com/melodywen/docker-trace-log/router"
+	"github.com/spf13/viper"
 	"log"
 	"net/http"
 	"os"
@@ -13,7 +15,7 @@ import (
 )
 
 func main() {
-
+	LoadConfig()
 	router := gin.Default()
 
 	if err := router2.RouterLoad(router); err != nil {
@@ -26,10 +28,9 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + viper.GetString("web_server.port"),
 		Handler: router,
 	}
-
 	go func() {
 		// 服务连接
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -49,4 +50,14 @@ func main() {
 		log.Fatal("Server Shutdown:", err)
 	}
 	log.Println("Server exiting")
+}
+
+func LoadConfig() {
+	viper.SetConfigName("config")   // name of config file (without extension)
+	viper.SetConfigType("json")     // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath("./config") // optionally look for config in the working directory
+	err := viper.ReadInConfig()     // Find and read the config file
+	if err != nil {                 // Handle errors reading the config file
+		panic(fmt.Errorf("fatal error config file: %w", err))
+	}
 }

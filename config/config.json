@@ -1,0 +1,15 @@
+{
+  "web_server": {
+    "port": 8080
+  },
+  "log_collection": {
+    "except": {
+      "stack": {
+        "test01": false
+      },
+      "server_name": {
+        "test01_dozzle": true
+      }
+    }
+  }
+}

@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"context"
 	"github.com/docker/docker/api/types"
+	"github.com/spf13/viper"
 	"io"
 	"log"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -55,7 +57,9 @@ func (d *DockerContainer) Handler() {
 
 		// 和正在运行的容器进行对比，添加新的
 		d.AddContainerToCollectLog()
+
 		// 移除老的容器
+		d.DestroyContainerToCollectLog()
 	}
 }
 func (d *DockerContainer) ReadCurrentContainerList() {
@@ -73,7 +77,16 @@ func (d *DockerContainer) ReadCurrentContainerList() {
 
 // AddContainerToCollectLog 添加容器进行收集
 func (d *DockerContainer) AddContainerToCollectLog() {
+	// 添加容器
 	for name, container := range d.CurrentContainer {
+		if strings.Index(name, ".") == -1 {
+			continue
+		}
+
+		if d.FilterContainer(name, &container) {
+			continue
+		}
+
 		if _, ok := d.CollectingLogContainerMap[name]; !ok {
 			// 开始收集日志
 			go d.CollectingLog(name, container)
@@ -81,10 +94,53 @@ func (d *DockerContainer) AddContainerToCollectLog() {
 	}
 }
 
+// DestroyContainerToCollectLog 移除停掉的日志
+func (d *DockerContainer) DestroyContainerToCollectLog() {
+	for name, container := range d.CollectingLogContainerMap {
+		if _, ok := d.CurrentContainer[name]; !ok {
+			// 结束容器
+			container.Cancel()
+		}
+	}
+}
+
+// FilterContainer
+//  @param name
+//  @param container
+//  @return bool
+func (d *DockerContainer) FilterContainer(name string, container *types.Container) bool {
+	l := LogInfo{
+		StackName:  strings.Split(name[1:], "_")[0],
+		ServerName: strings.Split(name[1:], ".")[0],
+	}
+	if l.StackName == "" || l.ServerName == "" {
+		return true
+	}
+
+	// 过滤 stack
+	filterStacks := viper.GetStringMap("log_collection.except.stack")
+	if value, ok := filterStacks[l.StackName]; ok && value == true {
+		return true
+	}
+	// 过滤 server_name
+	filterServices := viper.GetStringMap("log_collection.except.server_name")
+	if value, ok := filterServices[l.ServerName]; ok && value == true {
+		return true
+	}
+
+	return false
+}
+
+// CollectingLog 收集日志
+//  @param name
+//  @param container
 func (d *DockerContainer) CollectingLog(name string, container types.Container) {
 
 	log.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>开始收集容器日志:%s", name)
+	log.Printf("当前的协程数量：%d", runtime.NumGoroutine())
+
 	defer log.Printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<,结束容器的日志收集，%s", name)
+	defer log.Printf("当前的协程数量：%d", runtime.NumGoroutine())
 
 	ctx, cancel := context.WithCancel(d.Ctx)
 	logs, err := d.Cli.ContainerLogs(ctx, container.ID, types.ContainerLogsOptions{
@@ -124,7 +180,7 @@ func (d *DockerContainer) CollectingLog(name string, container types.Container) 
 			return
 		default:
 			line, err := br.ReadBytes('\n')
-			if err == io.EOF {
+			if err == io.EOF || err != nil {
 				break
 			}
 			lineStr := string(line)
