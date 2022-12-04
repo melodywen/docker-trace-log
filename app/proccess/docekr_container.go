@@ -16,7 +16,7 @@ import (
 
 type LogInfo struct {
 	StackName     string
-	ServerName    string
+	ServiceName   string
 	ContainerName string
 	LogTime       string
 	Origin        string
@@ -139,10 +139,10 @@ func (d *DockerContainer) DestroyContainerToCollectLog() {
 //  @return bool
 func (d *DockerContainer) FilterContainer(name string, container *types.Container) bool {
 	l := LogInfo{
-		StackName:  strings.Split(name[1:], "_")[0],
-		ServerName: strings.Split(name[1:], ".")[0],
+		StackName:   strings.Split(name[1:], "_")[0],
+		ServiceName: strings.Split(name[1:], ".")[0],
 	}
-	if l.StackName == "" || l.ServerName == "" {
+	if l.StackName == "" || l.ServiceName == "" {
 		return true
 	}
 
@@ -153,7 +153,7 @@ func (d *DockerContainer) FilterContainer(name string, container *types.Containe
 	}
 	// 过滤 server_name
 	filterServices := viper.GetStringMap("log_collection.except.server_name")
-	if value, ok := filterServices[l.ServerName]; ok && value == true {
+	if value, ok := filterServices[l.ServiceName]; ok && value == true {
 		return true
 	}
 
@@ -199,7 +199,7 @@ func (d *DockerContainer) CollectingLog(name string, container types.Container) 
 	for {
 		l := LogInfo{
 			StackName:     strings.Split(name[1:], "_")[0],
-			ServerName:    strings.Split(name[1:], ".")[0],
+			ServiceName:   strings.Split(name[1:], ".")[0],
 			ContainerName: name[1:],
 			LogTime:       "",
 			Origin:        "",

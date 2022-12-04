@@ -34,12 +34,23 @@ func NewWriterLog(ctx context.Context) *WriterLog {
 	return obj
 }
 
-func (w *WriterLog) Handle() {
-
+func (w *WriterLog) Handle(logOne *LogInfo) {
+	ctx, cancel := context.WithTimeout(w.Ctx, w.Timeout)
+	defer cancel()
+	collection := w.Database.Collection("container_log")
+	one, err := collection.InsertOne(ctx, map[string]interface{}{
+		"stack_name":   logOne.StackName,
+		"service_name": logOne.ServiceName,
+		"index":        logOne.Index,
+		"origin":       logOne.Origin,
+		"create_time":  logOne.LogTime,
+	})
+	if err != nil {
+		log.Fatalf("插入数据异常:%s,%v", err, one)
+	}
 }
 
 func (w *WriterLog) CheckDB() {
-	fmt.Println(w.Timeout)
 	ctx, cancel := context.WithTimeout(w.Ctx, w.Timeout)
 	defer cancel()
 
