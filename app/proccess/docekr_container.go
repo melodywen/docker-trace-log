@@ -35,23 +35,25 @@ type CollectingLogContainer struct {
 
 type DockerContainer struct {
 	*DockerApi
-	CurrentContainer map[string]types.Container
-
+	CurrentContainer          map[string]types.Container
 	CollectingLogContainerMap map[string]*CollectingLogContainer
+	IsChange                  bool
 }
 
 func NewDockerContainer(dockerApi *DockerApi) *DockerContainer {
 	return &DockerContainer{
 		DockerApi:                 dockerApi,
 		CollectingLogContainerMap: map[string]*CollectingLogContainer{},
+		IsChange:                  false,
 	}
 }
 
 func (d *DockerContainer) Handler() {
 	for {
 		update := <-ReLoadContainerInfo
-		log.Println("更新容器信息", update)
-
+		d.IsChange = false
+		log.Println("+++++++++++++++++++++++++更新容器信息+++++++++++++++++++", update)
+		log.Printf("当前的协程数量：%d", runtime.NumGoroutine())
 		// 读取当前容器
 		d.ReadCurrentContainerList()
 
@@ -60,8 +62,32 @@ func (d *DockerContainer) Handler() {
 
 		// 移除老的容器
 		d.DestroyContainerToCollectLog()
+
+		if d.IsChange {
+			time.Sleep(3 * time.Second)
+			// 输出当前的收集的情况
+			d.Print()
+		}
 	}
 }
+
+// Print 打印日志
+func (d *DockerContainer) Print() {
+	log.Printf("当前的协程数量：%d", runtime.NumGoroutine())
+	log.Println("👇👇👇👇👇👇👇👇👇👇👇👇👇👇👇当前的容器情况👇👇👇👇👇👇👇👇👇👇👇👇👇👇👇")
+	log.Println("输出 CurrentContainer：")
+	for s, _ := range d.CurrentContainer {
+		log.Println(s)
+	}
+	log.Println("-------------------------------------------------------------------------")
+	log.Println("输出 CollectingLogContainerMap：")
+	for s, _ := range d.CollectingLogContainerMap {
+		log.Println(s)
+	}
+	log.Println("👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆当前的容器情况👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆")
+}
+
+// ReadCurrentContainerList 读取当前日志列表
 func (d *DockerContainer) ReadCurrentContainerList() {
 	list, err := d.Cli.ContainerList(d.Ctx, types.ContainerListOptions{})
 
@@ -89,6 +115,7 @@ func (d *DockerContainer) AddContainerToCollectLog() {
 
 		if _, ok := d.CollectingLogContainerMap[name]; !ok {
 			// 开始收集日志
+			d.IsChange = true
 			go d.CollectingLog(name, container)
 		}
 	}
@@ -98,8 +125,10 @@ func (d *DockerContainer) AddContainerToCollectLog() {
 func (d *DockerContainer) DestroyContainerToCollectLog() {
 	for name, container := range d.CollectingLogContainerMap {
 		if _, ok := d.CurrentContainer[name]; !ok {
+			d.IsChange = true
 			// 结束容器
 			container.Cancel()
+			delete(d.CollectingLogContainerMap, name)
 		}
 	}
 }
@@ -163,6 +192,7 @@ func (d *DockerContainer) CollectingLog(name string, container types.Container) 
 		Regexp:          "traceId\\\": \"(.*?)\"",
 		RegexpDirection: "start",
 	}
+
 	d.CollectingLogContainerMap[name] = collection
 
 	// 循环读取一行
@@ -181,7 +211,7 @@ func (d *DockerContainer) CollectingLog(name string, container types.Container) 
 		default:
 			line, err := br.ReadBytes('\n')
 			if err == io.EOF || err != nil {
-				break
+				return
 			}
 			lineStr := string(line)
 			// 获取 origin

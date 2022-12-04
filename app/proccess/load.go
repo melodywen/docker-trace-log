@@ -24,6 +24,8 @@ func ProcessLoad(ctx context.Context) error {
 		aaa := <-LogsChan
 		str, _ := json.MarshalIndent(aaa, "", "   ")
 		fmt.Println(string(str))
+
+		//fmt.Println(container)
 	}
 
 	err := api.CloseCli()

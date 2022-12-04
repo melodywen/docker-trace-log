@@ -5,7 +5,7 @@
   "log_collection": {
     "except": {
       "stack": {
-        "test01": false
+        "test01": true
       },
       "server_name": {
         "test01_dozzle": true
