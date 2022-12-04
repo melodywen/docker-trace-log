@@ -2,6 +2,15 @@
   "web_server": {
     "port": 8080
   },
+  "mongo_uri": {
+    "user": "root",
+    "password": "ccmFipp123456",
+    "host": "mongo",
+    "port": "27017",
+    "database": "collection_log",
+    "timeout": 3000,
+    "max_number": 50
+  },
   "log_collection": {
     "except": {
       "stack": {

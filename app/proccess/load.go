@@ -20,12 +20,13 @@ func ProcessLoad(ctx context.Context) error {
 	container := NewDockerContainer(api)
 	go container.Handler()
 
+	db := NewWriterLog(ctx)
+	fmt.Println(db)
 	for {
 		aaa := <-LogsChan
 		str, _ := json.MarshalIndent(aaa, "", "   ")
 		fmt.Println(string(str))
 
-		//fmt.Println(container)
 	}
 
 	err := api.CloseCli()
