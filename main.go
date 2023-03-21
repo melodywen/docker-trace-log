@@ -2,11 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/melodywen/docker-trace-log/app/proccess"
+	app2 "github.com/melodywen/docker-trace-log/app"
 	router2 "github.com/melodywen/docker-trace-log/router"
-	"github.com/spf13/viper"
 	"log"
 	"net/http"
 	"os"
@@ -15,20 +13,18 @@ import (
 )
 
 func main() {
-	LoadConfig()
+	app := app2.GetApp()
+	app.Init()
+	app.NotifyStartServerBeforeEvent()
+
 	router := gin.Default()
 
 	if err := router2.RouterLoad(router); err != nil {
 		log.Fatal("router loading err", err)
 	}
 
-	ctx := context.Background()
-	if err := proccess.ProcessLoad(ctx); err != nil {
-		log.Fatal("process loading err", err)
-	}
-
 	srv := &http.Server{
-		Addr:    ":" + viper.GetString("web_server.port"),
+		Addr:    ":" + app.Config.GetString("web_server.port"),
 		Handler: router,
 	}
 	go func() {
@@ -50,14 +46,4 @@ func main() {
 		log.Fatal("Server Shutdown:", err)
 	}
 	log.Println("Server exiting")
-}
-
-func LoadConfig() {
-	viper.SetConfigName("config")   // name of config file (without extension)
-	viper.SetConfigType("json")     // REQUIRED if the config file does not have the extension in the name
-	viper.AddConfigPath("./config") // optionally look for config in the working directory
-	err := viper.ReadInConfig()     // Find and read the config file
-	if err != nil {                 // Handle errors reading the config file
-		panic(fmt.Errorf("fatal error config file: %w", err))
-	}
 }
