@@ -23,6 +23,6 @@ func (l *LogProvider) StartServerBeforeEvent(ctx context.Context, app contracts.
 }
 
 func (l *LogProvider) StartServerAfterEvent(ctx context.Context, app contracts.AppAttributeInterface) error {
-	defer app.GetLog().EnterExitFunc(ctx)
+	defer app.GetLog().EnterExitFunc(ctx)()
 	return nil
 }
