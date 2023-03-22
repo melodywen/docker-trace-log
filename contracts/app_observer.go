@@ -1,23 +1,26 @@
 package contracts
 
-import "github.com/sirupsen/logrus"
+import (
+	"context"
+	"github.com/melodywen/docker-trace-log/package/logs"
+)
 
 // AppSubjectInterface 定义app被关注者Interface
 type AppSubjectInterface interface {
 	AttachAppObserver(observer AppObserverInterface)
 	DetachAppObserver(observer AppObserverInterface)
-	NotifyStartServerBeforeEvent()
-	NotifyStartServerAfterEvent()
+	NotifyStartServerBeforeEvent(ctx context.Context)
+	NotifyStartServerAfterEvent(ctx context.Context)
 }
 
 // AppAttributeInterface 定义app 关注者Interface
 type AppAttributeInterface interface {
-	SetLog(log *logrus.Logger)
-	EnterExitFunc() func()
+	SetLog(log *logs.Log)
+	GetLog() *logs.Log
 }
 
 // AppObserverInterface 定义app 关注者Interface
 type AppObserverInterface interface {
-	StartServerBeforeEvent(app AppAttributeInterface) error
-	StartServerAfterEvent(app AppAttributeInterface) error
+	StartServerBeforeEvent(ctx context.Context, app AppAttributeInterface) error
+	StartServerAfterEvent(ctx context.Context, app AppAttributeInterface) error
 }

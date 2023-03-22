@@ -1,9 +1,9 @@
 package provider
 
 import (
+	"context"
 	"github.com/melodywen/docker-trace-log/contracts"
-	log "github.com/sirupsen/logrus"
-	"os"
+	"github.com/melodywen/docker-trace-log/package/logs"
 )
 
 type LogProvider struct {
@@ -13,25 +13,16 @@ func NewLogProvider() *LogProvider {
 	return &LogProvider{}
 }
 
-func (l LogProvider) StartServerBeforeEvent(app contracts.AppAttributeInterface) error {
-	// Log as JSON instead of the default ASCII formatter.
-	//log.SetFormatter(&log.JSONFormatter{})
+func (l *LogProvider) StartServerBeforeEvent(ctx context.Context, app contracts.AppAttributeInterface) error {
+	instance := logs.NewLog()
+	app.SetLog(instance)
 
-	// Output to stdout instead of the default stderr
-	// Can be any io.Writer, see below for File example
-	log.SetOutput(os.Stdout)
-
-	// Only log the warning severity or above.
-	log.SetLevel(log.TraceLevel)
-
-	app.SetLog(log.StandardLogger())
-
-	log.Debugf("成功注册了logrus")
+	instance.Debug(ctx, "成功注册了logrus")
 
 	return nil
 }
 
-func (l LogProvider) StartServerAfterEvent(app contracts.AppAttributeInterface) error {
-	defer app.EnterExitFunc()()
+func (l *LogProvider) StartServerAfterEvent(ctx context.Context, app contracts.AppAttributeInterface) error {
+	//defer app.EnterExitFunc()()
 	return nil
 }

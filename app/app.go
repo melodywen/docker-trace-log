@@ -1,11 +1,12 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"github.com/melodywen/docker-trace-log/app/provider"
 	"github.com/melodywen/docker-trace-log/contracts"
 	"github.com/melodywen/docker-trace-log/helper"
-	"github.com/sirupsen/logrus"
+	"github.com/melodywen/docker-trace-log/package/logs"
 	"github.com/spf13/viper"
 	"time"
 )
@@ -14,7 +15,7 @@ var app *Application
 
 type Application struct {
 	isInit bool
-	Log    *logrus.Logger
+	Log    *logs.Log
 	Config *viper.Viper
 
 	observers []contracts.AppObserverInterface
@@ -27,7 +28,7 @@ func newApplication() *Application {
 func GetApp() *Application {
 	if app == nil {
 		app = newApplication()
-
+		app.Init()
 	}
 	return app
 }
@@ -67,38 +68,41 @@ func (a *Application) DetachAppObserver(observer contracts.AppObserverInterface)
 	}
 }
 
-func (a *Application) NotifyStartServerBeforeEvent() {
+func (a *Application) NotifyStartServerBeforeEvent(ctx context.Context) {
 	for _, observerInterface := range app.observers {
-		err := observerInterface.StartServerBeforeEvent(a)
+		err := observerInterface.StartServerBeforeEvent(ctx, a)
 		if err != nil {
-			a.Log.Fatalf("app notify start server before event ,found err:%s", err.Error())
+			a.Log.Fatal(ctx, "app notify start server before event ,found err:%s", err.Error())
 		}
 	}
 }
 
-func (a *Application) NotifyStartServerAfterEvent() {
+func (a *Application) NotifyStartServerAfterEvent(ctx context.Context) {
 	for _, observerInterface := range app.observers {
-		err := observerInterface.StartServerAfterEvent(a)
+		err := observerInterface.StartServerAfterEvent(ctx, a)
 		if err != nil {
-			a.Log.Fatalf("app notify start server after event ,found err:%s", err.Error())
+			a.Log.Fatal(ctx, "app notify start server after event ,found err:%s", err.Error())
 		}
 	}
 }
 
-func (a *Application) SetLog(log *logrus.Logger) {
+func (a *Application) SetLog(log *logs.Log) {
 	a.Log = log
+}
+func (a *Application) GetLog() *logs.Log {
+	return a.Log
 }
 
 // EnterExitFunc 打印函数进出日志:
 //     使用方法
 // 	defer EnterExitFunc()()
-func (a *Application) EnterExitFunc() func() {
+func (a *Application) EnterExitFunc(ctx context.Context) func() {
 	funcName, file, line := helper.GetCallerInfo(true)
 	start := time.Now()
 
-	a.Log.Debugf("enter %s func (%s:%d)", funcName, file, line)
+	a.Log.Debug(ctx, "enter %s func (%s:%d)", funcName, file, line)
 	return func() {
 		_, file, line = helper.GetCallerInfo(false)
-		a.Log.Debugf("exit %s (%s) func (%s:%d)", funcName, time.Since(start), file, line)
+		a.Log.Debug(ctx, "exit %s (%s) func (%s:%d)", funcName, time.Since(start), file, line)
 	}
 }

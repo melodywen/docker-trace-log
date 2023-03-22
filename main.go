@@ -14,8 +14,9 @@ import (
 
 func main() {
     app := app2.GetApp()
-    app.Init()
-    app.NotifyStartServerBeforeEvent()
+    ctx := context.Background()
+
+    app.NotifyStartServerBeforeEvent(ctx)
 
     router := gin.Default()
 
@@ -34,7 +35,7 @@ func main() {
         }
     }()
 
-    app.NotifyStartServerAfterEvent()
+    app.NotifyStartServerAfterEvent(ctx)
 
     // 等待中断信号以优雅地关闭服务器（设置 5 秒的超时时间）
     quit := make(chan os.Signal)
