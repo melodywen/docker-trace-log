@@ -37,6 +37,7 @@ func (a *Application) Init() {
 	a.AttachAppObserver(provider.NewLogProvider())
 	a.AttachAppObserver(provider.NewConfigProvider())
 	a.AttachAppObserver(provider.NewMongoProvider())
+	a.AttachAppObserver(provider.NewWsProvider())
 	a.AttachAppObserver(provider.NewHttpProvider())
 }
 
