@@ -1,23 +1,23 @@
 package provider
 
 import (
-    "context"
-    "github.com/melodywen/docker-trace-log/contracts"
+	"context"
+	"github.com/melodywen/docker-trace-log/contracts"
 )
 
 type MongoProvider struct {
 }
 
 func NewMongoProvider() *MongoProvider {
-    return &MongoProvider{}
+	return &MongoProvider{}
 }
 
 func (m *MongoProvider) StartServerBeforeEvent(ctx context.Context, app contracts.AppAttributeInterface) error {
-
-    return nil
+	defer app.GetLog().EnterExitFunc(ctx)
+	return nil
 }
 
 func (m *MongoProvider) StartServerAfterEvent(ctx context.Context, app contracts.AppAttributeInterface) error {
-
-    return nil
+	defer app.GetLog().EnterExitFunc(ctx)
+	return nil
 }
